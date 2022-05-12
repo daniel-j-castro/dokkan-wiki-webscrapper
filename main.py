@@ -1,4 +1,6 @@
+from tkinter.ttk import Style
 from bs4 import BeautifulSoup
+from pip import main
 import requests
 from os import path
 
@@ -27,10 +29,12 @@ def grab_unit_info(unit):
         for x in unit.find('div', class_="tabber wds-tabber").children:
            header = x.find('table')
            left_table = x.find('div', class_='lefttablecard')
+           right_table = unit.find('div', class_='righttablecard')
            if header == None:
                continue
            header_info = handle_header(header)
            left_info = handle_left(left_table, header_info['unit_id'])
+           right_info = handle_right(right_table, header_info['unit_id'])
 
 
 """
@@ -38,7 +42,7 @@ Grab all relevant information in the header table of a unit.
 Returns a Dictonary
 """
 def handle_header(header) -> dict:
-    header_info = {'unit_title': None, 'unit_name': None, 'max_lvl': None, 'sa': None, 'rarity': None, 'unit_type': None,
+    header_info = {'unit_title': None, 'unit_name': None, 'max_lvl': None, 'sa_lvl': None, 'rarity': None, 'unit_type': None,
                    'unit_class': None, 'unit_cost': None, 'unit_id': None}
     #Separate Table Rows (second row irrelevant)
     rows = header.find_all('tr')
@@ -53,7 +57,7 @@ def handle_header(header) -> dict:
     if '/' in header_info['max_lvl']:
         header_info['max_lvl'] = header_info['max_lvl'].split('/')[1]
     #Grabbing SA LVL
-    header_info['sa'] = third_row_info[1].text.split('/')[1]
+    header_info['sa_lvl'] = third_row_info[1].text.split('/')[1]
     #Grabbing rarity
     header_info['rarity'] = third_row_info[2].find('a')['href'].split(':')[1]
     #Grabbing type and class
@@ -118,11 +122,25 @@ def handle_left(left_card, uid) -> dict:
             release_date = {region:{'Release':cols[1].text}}
         print(release_date)
         
+def handle_right(right_card, uid) -> dict:
+    tables = right_card.find_all('table')
+    main_table = tables[0]
+    main_rows = main_table.find('tbody').find_all('tr')
+    leader_skill = main_rows[1].text
+    unit_attrs = {}
+    for i, row in enumerate(main_rows):
+        check = row.find('td')
+        if 'style' in check.attrs:
+            img = row.find('img') 
+            if img and 'alt' in img.attrs:
+                unit_attrs[i] = img['alt'].split('.png')[0].replace('atk', 'Attack').replace('skill', 'Skill')
+    print(unit_attrs)
     
+    return {}
 
 
 
-html_response = requests.get('https://dbz-dokkanbattle.fandom.com/wiki/The_Captain%27s_Trump_Card_Captain_Ginyu').text
+html_response = requests.get('https://dbz-dokkanbattle.fandom.com/wiki/Evil_Pride_Frieza_(Final_Form)_(Angel)').text
 soup = BeautifulSoup(html_response, 'lxml')
 all_info = soup.find('div', class_ ='mw-parser-output')
 check = tab_check(all_info)
@@ -136,3 +154,11 @@ if check == 'y':
         count +=1
 
 grab_unit_info(all_info)
+
+"""
+All units have a leader skill, passive, super attack, links, categories
+Some units have an active skill, transformation/exchange/etc., 2 super attacks, unit super attack
+
+right_info = {leader_skill: string, passive: {passive_name:string}, sa_info: {super_attack_name: string, super_attack_effect: string}, links: [strings], categories: [strings],
+              active_skill: {active_skill:string}, change: {type_of_change:string, change_condition: string}, ultsa_info: {super_attack_name: string, super_attack_effect: string}}, 
+"""
