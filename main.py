@@ -1,9 +1,16 @@
-from tkinter.ttk import Style
 from bs4 import BeautifulSoup
-from pip import main
 import requests
 from os import path
+import os
+from dotenv import load_dotenv
+import boto3
 
+load_dotenv()
+access_key = os.getenv('ACCESS_KEY')
+secret_key = os.getenv('SECRET_KEY')
+bucket_name = os.getenv('BUCKET_NAME')
+
+client = boto3.client('s3', aws_access_key_id=access_key, aws_secret_access_key=secret_key)
 """
 Information regarding a unit is under a div with class=mw-parser-output, this div has a different number of children 
 depending on whether a unit is a tranforming/exchange/fusion/etc. unit so it is important to make a distinction
@@ -25,8 +32,12 @@ def grab_unit_info(unit):
         left_table = unit.find('div', class_='lefttablecard')
         header_info = handle_header(header)     
         left_info = handle_left(left_table, header_info['unit_id']) 
+        print('done')
     else:
-        for x in unit.find('div', class_="tabber wds-tabber").children:
+        children = unit.find('div', class_="tabber wds-tabber").children
+        next(children)
+        cards = {}
+        for x in children:
            header = x.find('table')
            left_table = x.find('div', class_='lefttablecard')
            right_table = unit.find('div', class_='righttablecard')
@@ -35,6 +46,10 @@ def grab_unit_info(unit):
            header_info = handle_header(header)
            left_info = handle_left(left_table, header_info['unit_id'])
            right_info = handle_right(right_table, header_info['unit_id'])
+           cards[header_info['unit_id']] = {"h" :header_info, "l" : left_info, "r": right_info}
+        for x in cards.keys():
+            cards[x]["linked_cards"] = [i for i in cards.keys()]
+        print('done')
 
 
 """
@@ -74,14 +89,16 @@ def handle_header(header) -> dict:
     header_info['unit_id'] = third_row_info[5].text
 
     #Download thumb of unit
-    if not path.exists('./thumbs/'+header_info['unit_id']+'.png'):
+    f_path = './thumbs/'+header_info['unit_id']+'.png'
+    if not path.exists(f_path):
         image = header.find('img')
         if 'data-src' in image.attrs:
             img = requests.get(image['data-src'])
         else:
             img = requests.get(image['src'])
-        with open('./thumbs/'+header_info['unit_id']+'.png', 'wb') as f:
+        with open(f_path, 'wb') as f:
             f.write(img.content)
+        client.upload_file(f_path, bucket_name, 'thumbs/'+header_info['unit_id']+'.png')
     
     return header_info
 
@@ -93,8 +110,10 @@ def handle_left(left_card, uid) -> dict:
             img = requests.get(image['data-src'])
         else:
             img = requests.get(image['src'])
-        with open('./art/'+uid+'.png', 'wb') as f:
+        f_path = './art/'+uid+'.png'
+        with open(f_path, 'wb') as f:
             f.write(img.content)
+        client.upload_file(f_path, bucket_name, 'art/'+uid+'.png')
     #Info is separated into tables on page
     left_tables = left_card.find_all('table')
     #Grabbing unit release date
@@ -112,7 +131,6 @@ def handle_left(left_card, uid) -> dict:
         else:
             release_date = {jp:{'Release':jp_cols[1].text}}
             release_date[glb] = {'Release':global_cols[1].text}
-        print(release_date)
     else:
         cols = rows[1].find_all('td')
         region = cols[0].find('img')['alt'].split()[0]
@@ -120,7 +138,7 @@ def handle_left(left_card, uid) -> dict:
             release_date = {region:{'Release':cols[1].text, 'EZA':cols[2].text}}
         else:
             release_date = {region:{'Release':cols[1].text}}
-        print(release_date)
+    return release_date
         
 def handle_right(right_card, uid) -> dict:
     tables = right_card.find_all('table')
@@ -134,13 +152,12 @@ def handle_right(right_card, uid) -> dict:
             img = row.find('img') 
             if img and 'alt' in img.attrs:
                 unit_attrs[i] = img['alt'].split('.png')[0].replace('atk', 'Attack').replace('skill', 'Skill')
-    print(unit_attrs)
     
     return {}
 
 
 
-html_response = requests.get('https://dbz-dokkanbattle.fandom.com/wiki/Evil_Pride_Frieza_(Final_Form)_(Angel)').text
+html_response = requests.get('https://dbz-dokkanbattle.fandom.com/wiki/Saiyan_Father_and_Son_in_Action_Super_Saiyan_Goku_%26_Super_Saiyan_Gohan_(Youth)').text
 soup = BeautifulSoup(html_response, 'lxml')
 all_info = soup.find('div', class_ ='mw-parser-output')
 check = tab_check(all_info)
