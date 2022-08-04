@@ -2,7 +2,6 @@ import pymongo
 from bs4 import BeautifulSoup
 import os
 import requests
-import re
 
 BASE_URL = 'https://dbz-dokkanbattle.fandom.com'
 
