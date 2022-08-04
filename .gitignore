@@ -1,3 +1,5 @@
 .env
 art/
 thumbs/
+.idea
+__pycache__
