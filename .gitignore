@@ -1,5 +1,5 @@
 .env
 art/
 thumbs/
-.idea
-__pycache__
+.idea/
+__pycache__/
