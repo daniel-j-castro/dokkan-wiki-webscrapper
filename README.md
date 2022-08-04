@@ -1,4 +1,4 @@
 # dokkan-wiki-webscrapper
 ## TODO
-- Create script to download all s3 files for when on different computers  
-- Figure out logic to grab all right info
+- Most likely revert from bucket to local, then create script to upload images to bucket separately. Some images take to long to send.
+- Walkthrough through entire disambiguation page (https://dbz-dokkanbattle.fandom.com/wiki/Disambiguation) to parse urls for units that need to be added to db
