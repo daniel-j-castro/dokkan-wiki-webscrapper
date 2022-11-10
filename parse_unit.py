@@ -96,7 +96,10 @@ def handle_header(header) -> dict:
     #Grabbing SA LVL
     header_info['sa_lvl'] = third_row_info[1].text.split('/')[1]
     #Grabbing rarity
-    header_info['rarity'] = third_row_info[2].find('a')['href'].split(':')[1]
+    if third_row_info[2].find('a'):
+        header_info['rarity'] = third_row_info[2].find('a')['href'].split(':')[1]
+    else:
+        header_info['rarity'] = 'UR'
     #Grabbing type and class
     unit_type = third_row_info[3].find_all('a')
     if(len(unit_type) > 1):
@@ -154,6 +157,8 @@ def handle_left(left_card, uid) -> dict:
             release_date = {jp:{'Release':jp_cols[1].text}}
             release_date[glb] = {'Release':global_cols[1].text}
     else:
+        if len(rows) < 2:
+            rows = left_tables[1].find_all('tr')
         cols = rows[1].find_all('td')
         region = cols[0].find('img')['alt'].split()[0].lower()
         if(len(cols) > 2):
@@ -248,7 +253,7 @@ def handle_right(right_card, potential_eza) -> dict:
     unit_attrs['hp'] = hp
     unit_attrs['def'] = defense
     unit_attrs['atk'] = att
-    print(unit_attrs)
+    #print(unit_attrs)
 
     return unit_attrs
 
@@ -262,28 +267,26 @@ def grab_eza_stats(eza_table) -> list:
     eza_att = actual_stats[8:10]
     eza_def = actual_stats[13:15]
     return {'EZA_HP' : eza_hp, 'EZA_ATK' : eza_att, 'EZA_DEF' : eza_def}
-    
 
-if __name__ == "__main__":
-    html_response = requests.get('https://dbz-dokkanbattle.fandom.com/wiki/Drive_to_Take_Down_Evil_Pan_(GT)').text
-    #html_response = requests.get('https://dbz-dokkanbattle.fandom.com/wiki/Saiyan_Warriors_with_Ultimate_Power_Super_Saiyan_4_Goku_%26_Super_Saiyan_4_Vegeta').text
+def setup_unit(url):
+    html_response = requests.get(url).text
     soup = BeautifulSoup(html_response, 'lxml')
     all_info = soup.find('div', class_ ='mw-parser-output')
-    check = tab_check(all_info)
+    return all_info
 
-    """
-    ignore first child grab rest for units with multiple info
-    """
-    count = 0
-    if check == 'y':
-        for x in all_info.find('div', class_="tabber wds-tabber").children:
-            count +=1
+def insert(doc) -> bool:
+    try:
+        for i in doc:
+            unit_collection.insert_one(doc[i])
+    except:
+        return False
+    return True
 
+if __name__ == "__main__":
+    all_info = setup_unit('https://dbz-dokkanbattle.fandom.com/wiki/Drive_to_Take_Down_Evil_Pan_(GT)')
     info = grab_unit_info(all_info)
-    print(info.keys())
-    for i in info:
-        unit_collection.insert_one(info[i])
-
+    insert(info)
+    #test
     """
     All units have a leader skill, passive, super attack, links, categories
     Some units have an active skill, transformation/exchange/etc., 2 super attacks, unit super attack
